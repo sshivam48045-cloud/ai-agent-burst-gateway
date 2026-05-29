@@ -34,11 +34,11 @@ async def async_crawl(request: Request):
     
     # 2. KAFKA BACKPRESSURE HANDLING
     try:
-        # Pushing to Kafka 'crustdata-burst-stream'
+        # Pushing to Kafka 
         producer.produce('crustdata-burst-stream', value=json.dumps(payload).encode('utf-8'))
         producer.poll(0) # Non-blocking poll
     except BufferError:
-        # Buffer full ho gaya babu! System bacha liya humne 503 bhej ke.
+        # Buffer full so show 503
         raise HTTPException(status_code=503, detail="Server heavily loaded (Kafka Buffer Full). Applying Backpressure.")
 
     return {"status": "202 Accepted", "task_id": task_id, "message": "Queued for async processing"}
