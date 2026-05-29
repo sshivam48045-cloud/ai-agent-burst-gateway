@@ -23,42 +23,36 @@ Async Consumers → scalable data curation workers
 Locust → distributed AI-agent load simulation
 
 
-🏗️ Architecture
-[ 1000+ Simulated AI Agents Burst Load (Locust) ]
+### 🏗️ Architecture Flow
+
+```text
+       [ 1000+ Simulated AI Agents Burst Load (Locust) ]
                                |
             +------------------+------------------+
             |                                     |
-     (A) FAILURE PATH                      (B) SUCCESS PATH
+    (A) FAILURE PATH                      (B) SUCCESS PATH
             |                                     |
-   [ GET /api/v1/crawl ]                [ POST /api/v1/crawl_async ]
+   [ GET /api/v1/crawl ]                 [ POST /api/v1/crawl_async ]
             |                                     |
     [ FastAPI Web Server ]              [ Redis Token-Bucket Limiter ]
+            |                                     | (If > 5000 RPS -> Drop 429)
+     (Blocking Loop)                    [ FastAPI Producer Layer ]
             |                                     |
-      (Blocking Loop)                   (If > 5000 RPS -> Drop 429)
-            |                                     |
-      [ time.sleep(2) ]                 [ FastAPI Producer Layer ]
-            |                                     |
-    (Memory Choke / 🚨 Fails)           [ Kafka Ingestion Buffer ]
-                                                     |
-                                         (crustdata-burst-stream)
-                                                     |
-                                   (If Queue Full -> Backpressure 503)
-                                                     |
-                                         [ Async Worker / Consumer ]
-                                                     |
-                                         [ Deduplication Layer ]
-                                                (Redis Sets)
-                                                     |
-                                   [ Scoring Engine (Trust/Freshness) ]
-                                                     |
-          +----------------------------+----------------------------+
-          |                            |                            |
-   (Score >= 80)              (50 <= Score < 80)           (Score < 50)
-          |                            |                            |
- [ 🚀 FAST RAM LAYER ]         [ 📦 WARM STORAGE ]         [ ❄️ COLD STORAGE ]
- (Redis Hash / Mock HNSW)      (Local JSON DB)             (CSV Archive Dump)
-
-
+     [ time.sleep(2) ]                  [ Kafka Ingestion Buffer ]
+            |                             (crustdata-burst-stream)
+    (Memory Choke / 🚨 Fails)                     | (If Queue Full -> Backpressure 503)
+                                        [ Async Worker / Consumer ]
+                                                  |
+                                        [ Deduplication Layer ] (Redis Sets)
+                                                  |
+                                        [ Scoring Engine (Trust/Freshness) ]
+                                                  |
+                   +------------------------------+------------------------------+
+                   | (Score >= 80)                | (50 <= Score < 80)           | (Score < 50)
+                   v                              v                              v
+         [ 🚀 FAST RAM LAYER ]            [ 📦 WARM STORAGE ]             [ ❄️ COLD STORAGE ]
+         (Redis Hash: Mock HNSW)        (Local JSON File DB)           (Log/CSV Archive Dump)
+\`\`\`
 ⚙️ Core Features
 🚀 Async Burst Ingestion
 
